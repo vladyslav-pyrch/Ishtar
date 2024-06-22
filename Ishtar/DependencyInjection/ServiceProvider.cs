@@ -8,7 +8,7 @@ public class ServiceProvider : IServiceProvider
 {
     private static readonly Dictionary<ServiceDescriptor, object> SingletonServices;
     
-    private readonly IReadOnlyList<ServiceDescriptor> _services = null!;
+    private readonly IServiceCollection _services = null!;
 
     private readonly Dictionary<ServiceDescriptor, object> _scopedServices;
 
@@ -23,7 +23,7 @@ public class ServiceProvider : IServiceProvider
         _scopedServices = new Dictionary<ServiceDescriptor, object>();
     }
 
-    public IReadOnlyList<ServiceDescriptor> Services
+    public IServiceCollection Services
     {
         get => _services;
         private init => _services = value ?? throw new ArgumentNullException(nameof(value), "Services may not be null.");
