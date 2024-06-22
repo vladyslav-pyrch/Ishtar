@@ -8,6 +8,7 @@
 
     <ItemGroup>
       <Folder Include="DependencyInjection\Extentions\" />
+      <Folder Include="Extentions\" />
     </ItemGroup>
 
 </Project>

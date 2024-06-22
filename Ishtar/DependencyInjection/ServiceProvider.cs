@@ -1,6 +1,6 @@
 ﻿using System.Reflection;
 using Ishtar.DependencyInjection.Abstractions;
-using IServiceProvider = System.IServiceProvider;
+using IServiceProvider = Ishtar.DependencyInjection.Abstractions.IServiceProvider;
 
 namespace Ishtar.DependencyInjection;
 
@@ -76,7 +76,6 @@ public class ServiceProvider : IServiceProvider
         {
             return instance;
         }
-
         if (descriptor.Lifetime == ServiceLifetime.Scoped && _scopedServices.TryGetValue(descriptor, out instance))
         {
             return instance;
@@ -88,7 +87,6 @@ public class ServiceProvider : IServiceProvider
         {
             SingletonServices.Add(descriptor, instance);
         }
-        
         if (descriptor.Lifetime == ServiceLifetime.Scoped)
         {
             _scopedServices.Add(descriptor, instance);
@@ -103,34 +101,63 @@ public class ServiceProvider : IServiceProvider
         
         used.Add(descriptor.ServiceType);
 
-        ConstructorInfo[] constructors = descriptor.ImplementationType.GetConstructors();
-
-        switch (constructors.Length)
+        if (descriptor.IsInInstanceMode)
         {
-            case 0:
-                instance = Activator.CreateInstance(descriptor.ImplementationType);
-                break;
-            case 1:
-                ConstructorInfo constructor = constructors[0];
-                IEnumerable<Type> typesOfDependencies = constructor.GetParameters().Select(info => info.ParameterType);
-            
-                Type? reoccurred = typesOfDependencies.FirstOrDefault(used.Contains);
-                if (reoccurred is not null)
-                {
-                    throw new RecursiveDependencyException(descriptor.ServiceType, reoccurred);
-                }
-
-                IEnumerable<object> dependencies = typesOfDependencies.Select(
-                    type => GetService(type, used) ?? throw new NoSuchDependencyException(type)
-                );
-
-                instance = Activator.CreateInstance(descriptor.ImplementationType, dependencies);
-                break;
-            case >= 2:
-                throw new MultipleConstructorsException(descriptor.ServiceType, descriptor.ImplementationType);
+            instance = descriptor.Instance;
         }
-            
+        if (descriptor.IsInFactoryMode)
+        {
+            instance = descriptor.Factory.Invoke(this);
+        }
+        if (descriptor.IsInDescriptionMode)
+        {
+            instance = UsingImplementationType(descriptor, used);
+        }
+        
         used.Remove(descriptor.ServiceType);
+
+        return instance;
+    }
+
+    private object? UsingImplementationType(ServiceDescriptor descriptor, List<Type> used)
+    {
+        if (!descriptor.IsInDescriptionMode)
+        {
+            throw new InvalidOperationException("This method is allow to run only in when descriptor is in Description mode.");
+        }
+        
+        object? instance = null;
+        
+        ConstructorInfo[] constructors = descriptor.ImplementationType.GetConstructors();
+        
+        
+        if (constructors.Length >= 2)
+        {
+            throw new MultipleConstructorsException(descriptor.ServiceType, descriptor.ImplementationType);
+        }
+
+        if (constructors.Length == 0)
+        {
+            instance = Activator.CreateInstance(descriptor.ImplementationType);
+        }
+        else if (constructors.Length == 1)
+        {
+            ConstructorInfo constructor = constructors[0];
+            IEnumerable<Type> typesOfDependencies =
+                constructor.GetParameters().Select(info => info.ParameterType);
+
+            Type? reoccurred = typesOfDependencies.FirstOrDefault(used.Contains);
+            if (reoccurred is not null)
+            {
+                throw new RecursiveDependencyException(descriptor.ServiceType, reoccurred);
+            }
+
+            IEnumerable<object> dependencies = typesOfDependencies.Select(
+                type => GetService(type, used) ?? throw new NoSuchDependencyException(type)
+            );
+
+            instance = Activator.CreateInstance(descriptor.ImplementationType, dependencies);
+        }
 
         return instance;
     }
