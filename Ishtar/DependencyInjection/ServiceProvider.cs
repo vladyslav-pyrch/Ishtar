@@ -38,7 +38,7 @@ public class ServiceProvider : IServiceProvider
     /// <exception cref="MultipleServicesOfTheSameTypeException">
     /// Thrown when two or more services have the same type.
     /// </exception>
-    /// <exception cref="NoSuchDependencyException">
+    /// <exception cref="NoSuchServiceException">
     /// Thrown when a dependency was not created.
     /// </exception>
     /// <exception cref="MultipleConstructorsException">
@@ -72,24 +72,28 @@ public class ServiceProvider : IServiceProvider
             return null;
         }
 
-        if (descriptor.Lifetime == ServiceLifetime.Singleton && SingletonServices.TryGetValue(descriptor, out instance))
+        switch (descriptor.Lifetime)
         {
-            return instance;
-        }
-        if (descriptor.Lifetime == ServiceLifetime.Scoped && _scopedServices.TryGetValue(descriptor, out instance))
-        {
-            return instance;
+            case ServiceLifetime.Singleton when SingletonServices.TryGetValue(descriptor, out instance):
+                return instance;
+            case ServiceLifetime.Scoped when _scopedServices.TryGetValue(descriptor, out instance):
+                return instance;
+            case ServiceLifetime.Transient:
+                break;
         }
 
         instance = GetService(descriptor, used);
 
-        if (descriptor.Lifetime == ServiceLifetime.Singleton)
+        switch (descriptor.Lifetime)
         {
-            SingletonServices.Add(descriptor, instance);
-        }
-        if (descriptor.Lifetime == ServiceLifetime.Scoped)
-        {
-            _scopedServices.Add(descriptor, instance);
+            case ServiceLifetime.Singleton:
+                SingletonServices.Add(descriptor, instance);
+                break;
+            case ServiceLifetime.Scoped:
+                _scopedServices.Add(descriptor, instance);
+                break;
+            case ServiceLifetime.Transient:
+                break;
         }
 
         return instance;
@@ -153,7 +157,7 @@ public class ServiceProvider : IServiceProvider
             }
 
             IEnumerable<object> dependencies = typesOfDependencies.Select(
-                type => GetService(type, used) ?? throw new NoSuchDependencyException(type)
+                type => GetService(type, used) ?? throw new NoSuchServiceException(type)
             );
 
             instance = Activator.CreateInstance(descriptor.ImplementationType, dependencies);

@@ -10,7 +10,7 @@ public class ServiceDescriptor
 
     private readonly object? _instance;
 
-    private readonly ServiceFactory? _factory;
+    private readonly IServiceFactory? _factory;
     
     private readonly ServiceLifetime _lifetime;
 
@@ -24,6 +24,12 @@ public class ServiceDescriptor
         {
             throw new InvalidServiceHierarchyException(serviceType, implementationType);
         }
+
+        if (implementationType.IsInterface || implementationType.IsAbstract)
+        {
+            throw new InvalidOperationException(
+                $"Implementation type {implementationType.FullName} may not be an interface or an abstract class");
+        }
         
         ServiceType = serviceType;
         ImplementationType = implementationType;
@@ -35,20 +41,24 @@ public class ServiceDescriptor
         : this(serviceType, serviceType, lifetime)
     { }
 
-    public ServiceDescriptor(Type serviceType, object? instance)
+    public ServiceDescriptor(Type serviceType, object instance)
     {
+        if (!instance.GetType().IsSubclassOf(serviceType) && !instance.GetType().IsAssignableTo(serviceType))
+        {
+            throw new InvalidServiceHierarchyException(serviceType, instance.GetType());
+        }
+        
         ServiceType = serviceType;
         Instance = instance;
         Mode = ServiceDescriptorMode.Instance;
         Lifetime = ServiceLifetime.Singleton;
     }
 
-    public ServiceDescriptor(Type serviceType, ServiceFactory factory, ServiceLifetime lifetime)
+    public ServiceDescriptor(Type serviceType, IServiceFactory factory, ServiceLifetime lifetime = ServiceLifetime.Scoped)
     {
         ServiceType = serviceType;
         Lifetime = lifetime;
         Factory = factory;
-        
     }
 
     public Type ServiceType
@@ -69,7 +79,7 @@ public class ServiceDescriptor
         private init => _instance = value;
     }
     
-    public ServiceFactory? Factory
+    public IServiceFactory? Factory
     {
         get => _factory;
         private init => _factory = value ?? throw new ArgumentNullException(nameof(value), "Factory may not be null.");
