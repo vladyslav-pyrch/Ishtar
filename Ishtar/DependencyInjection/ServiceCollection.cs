@@ -3,7 +3,7 @@ using Ishtar.DependencyInjection.Abstractions;
 
 namespace Ishtar.DependencyInjection;
 
-public class ServiceCollection : IServiceCollection
+internal class ServiceCollection : IServiceCollection
 {
     private readonly List<ServiceDescriptor> _serviceDescriptors = [];
     

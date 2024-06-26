@@ -1,4 +1,5 @@
-﻿using Ishtar.DependencyInjection.Abstractions;
+﻿using System.Reflection;
+using Ishtar.DependencyInjection.Abstractions;
 using IServiceProvider = Ishtar.DependencyInjection.Abstractions.IServiceProvider;
 
 namespace Ishtar.DependencyInjection.Extensions;
@@ -18,5 +19,38 @@ public static class IServiceProviderExtensions
     public static TService GetRequiredService<TService>(this IServiceProvider serviceProvider)
     {
         return (TService)serviceProvider.GetRequiredService(typeof(TService));
+    }
+
+    public static object InjectInto(this IServiceProvider serviceProvider, Type serviceType)
+    {
+        if (serviceType.IsInterface || serviceType.IsAbstract)
+        {
+            throw new InvalidOperationException(
+                $"Service type {serviceType.FullName} may not be an interface or an abstract class");
+        }
+        
+        ConstructorInfo[] constructors = serviceType.GetConstructors();
+        
+        switch (constructors.Length)
+        {
+            case 0:
+                return Activator.CreateInstance(serviceType)!;
+            case >= 2:
+                throw new MultipleConstructorsException(serviceType, serviceType);
+        }
+
+        ConstructorInfo constructor = constructors[0];
+        IEnumerable<Type> typesOfDependencies = constructor.GetParameters().Select(info => info.ParameterType);
+        IEnumerable<object> dependencies = typesOfDependencies.Select(
+            type => serviceProvider.GetService(type) ?? throw new NoSuchServiceException(type)
+        );
+
+        return Activator.CreateInstance(serviceType, dependencies)!;
+    }
+
+    public static TService InjectInto<TService>(this IServiceProvider serviceProvider)
+        where TService : class
+    {
+        return (TService)serviceProvider.InjectInto(typeof(TService));
     }
 }

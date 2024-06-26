@@ -3,7 +3,7 @@ using IServiceProvider = Ishtar.DependencyInjection.Abstractions.IServiceProvide
 
 namespace Ishtar.DependencyInjection;
 
-public class DefaultServiceFactory : IServiceFactory
+internal class DefaultServiceFactory : IServiceFactory
 {
     private readonly Func<IServiceProvider, object> _factory;
 
@@ -18,7 +18,7 @@ public class DefaultServiceFactory : IServiceFactory
     }
 }
 
-public class DefaultServiceFactory<TService> : IServiceFactory where TService : notnull
+internal class DefaultServiceFactory<TService> : IServiceFactory where TService : notnull
 {
     private readonly Func<IServiceProvider, TService> _factory;
 

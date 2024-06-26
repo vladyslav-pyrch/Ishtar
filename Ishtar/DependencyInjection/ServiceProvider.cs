@@ -4,7 +4,7 @@ using IServiceProvider = Ishtar.DependencyInjection.Abstractions.IServiceProvide
 
 namespace Ishtar.DependencyInjection;
 
-public class ServiceProvider : IServiceProvider
+internal class ServiceProvider : IServiceProvider
 {
     private static readonly Dictionary<ServiceDescriptor, object> SingletonServices;
     
