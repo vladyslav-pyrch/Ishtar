@@ -127,29 +127,29 @@ internal class ServiceProvider : IServiceProvider
     {
         if (!descriptor.IsInDescriptionMode)
         {
-            throw new InvalidOperationException("This method is allow to run only in when descriptor is in Description mode.");
+            throw new InvalidOperationException(
+                "This method is allow to run only in when descriptor is in Description mode.");
         }
 
         ConstructorInfo[] constructors = descriptor.ImplementationType.GetConstructors();
-        
         if (constructors.Length >= 2)
         {
             throw new MultipleConstructorsException(descriptor.ServiceType, descriptor.ImplementationType);
         }
         
-        ConstructorInfo constructor = constructors[0];
-        List<Type> typesOfDependencies = constructor.GetParameters().Select(info => info.ParameterType).ToList();
+        object[] dependencies = constructors[0].GetParameters()
+            .Select(info =>
+            {
+                if (used.Contains(info.ParameterType))
+                {
+                    throw new RecursiveDependencyException(descriptor.ServiceType, info.ParameterType);
+                }
+                
+                return info.ParameterType;
+            })
+            .Select(type => GetService(type, used) ?? throw new NoSuchServiceException(type))
+            .ToArray();
 
-        Type? reoccurred = typesOfDependencies.FirstOrDefault(used.Contains);
-        if (reoccurred is not null)
-        {
-            throw new RecursiveDependencyException(descriptor.ServiceType, reoccurred);
-        }
-
-        List<object> dependencies = typesOfDependencies.Select(
-            type => GetService(type, used) ?? throw new NoSuchServiceException(type)
-        ).ToList();
-
-        return dependencies.Count == 0 ? Activator.CreateInstance(descriptor.ImplementationType) : Activator.CreateInstance(descriptor.ImplementationType, dependencies);
+        return Activator.CreateInstance(descriptor.ImplementationType, dependencies);
     }
 }

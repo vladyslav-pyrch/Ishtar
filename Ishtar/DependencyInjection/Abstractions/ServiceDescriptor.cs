@@ -59,6 +59,7 @@ public class ServiceDescriptor
         ServiceType = serviceType;
         Lifetime = lifetime;
         Factory = factory;
+        Mode = ServiceDescriptorMode.Factory;
     }
 
     public Type ServiceType

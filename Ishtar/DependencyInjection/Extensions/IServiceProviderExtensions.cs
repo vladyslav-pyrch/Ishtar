@@ -30,19 +30,17 @@ public static class IServiceProviderExtensions
         }
         
         ConstructorInfo[] constructors = serviceType.GetConstructors();
-
         if (constructors.Length >= 2)
         {
             throw new MultipleConstructorsException(serviceType, serviceType);
         }
 
-        ConstructorInfo constructor = constructors[0];
-        IEnumerable<Type> typesOfDependencies = constructor.GetParameters().Select(info => info.ParameterType);
-        List<object> dependencies = typesOfDependencies.Select(
-            type => serviceProvider.GetService(type) ?? throw new NoSuchServiceException(type)
-        ).ToList();
+        object[] dependencies = constructors[0].GetParameters()
+            .Select(
+                info => serviceProvider.GetService(info.ParameterType)  ?? throw new NoSuchServiceException(info.ParameterType)
+                ).ToArray();
         
-        return dependencies.Count == 0 ? Activator.CreateInstance(serviceType)! : Activator.CreateInstance(serviceType, dependencies)!;
+        return Activator.CreateInstance(serviceType, dependencies.ToArray())!;
     }
 
     public static TService InjectInto<TService>(this IServiceProvider serviceProvider)
