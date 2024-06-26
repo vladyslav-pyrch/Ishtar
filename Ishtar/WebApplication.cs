@@ -40,8 +40,8 @@ public class WebApplication : IWebApplication, IAsyncDisposable
 
         while (!cancellationToken.IsCancellationRequested)
         {
-            using TcpClient client = await _listener.AcceptTcpClientAsync(cancellationToken);
-            await using NetworkStream stream = client.GetStream();
+            using Socket socket = await _listener.AcceptSocketAsync(cancellationToken);
+            await using var stream = new NetworkStream(socket, FileAccess.Read, false);
             IHttpRequest httpRequest = CreateRequest(GetRequestString(stream), stream);
             IHttpResponse httpResponse =
                 new HttpResponse(HttpStatusCode.NotSet0, httpRequest.Version, new HeaderDictionary(), []);
@@ -49,7 +49,7 @@ public class WebApplication : IWebApplication, IAsyncDisposable
 
             _firstMiddleware?.Invoke(httpContext);
 
-            await stream.WriteAsync(CreateResponse(httpContext.Response), cancellationToken);
+            await socket.SendAsync(CreateResponse(httpContext.Response), cancellationToken);
         }
     }
 
@@ -115,6 +115,10 @@ public class WebApplication : IWebApplication, IAsyncDisposable
 
     private IHttpRequest CreateRequest(string requestString, Stream bodyStream)
     {
+        if (string.IsNullOrEmpty(requestString))
+            return new HttpRequest(HttpMethod.Get, "/", HttpVersion.Version11, new HeaderDictionary(),
+                new QueryDictionary(), bodyStream);
+        
         string[] lines = requestString.Split("\r\n");
         string[] startLine = lines[0].Split(' ');
 
@@ -123,7 +127,7 @@ public class WebApplication : IWebApplication, IAsyncDisposable
         var version = new HttpVersion(startLine[2]);
         IQueryDictionary queryDictionary = new QueryDictionary();
         
-        NameValueCollection query = HttpUtility.ParseQueryString(new Uri(startLine[1], UriKind.Relative).Query);
+        NameValueCollection query = HttpUtility.ParseQueryString(new Uri("http://does.not.exist" + startLine[1]).Query);
         for (var i = 0; i < query.Count; i++)
         {
             string? key = query.GetKey(i);
@@ -143,7 +147,7 @@ public class WebApplication : IWebApplication, IAsyncDisposable
     private byte[] CreateResponse(IHttpResponse response)
     {
         StringBuilder responseStringBuilder = new StringBuilder()
-            .Append($"{response.Version} {response.StatusCode.StatusCode} {response.StatusCode.StatusMessage}\r\n");
+            .Append($"{response.Version.Version} {response.StatusCode.StatusCode} {response.StatusCode.StatusMessage}\r\n");
 
         foreach (KeyValuePair<string,string> header in response.Headers)
             responseStringBuilder.Append($"{header.Key}: {header.Value}\r\n");

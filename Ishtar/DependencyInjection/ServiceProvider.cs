@@ -129,40 +129,27 @@ internal class ServiceProvider : IServiceProvider
         {
             throw new InvalidOperationException("This method is allow to run only in when descriptor is in Description mode.");
         }
-        
-        object? instance = null;
-        
+
         ConstructorInfo[] constructors = descriptor.ImplementationType.GetConstructors();
-        
         
         if (constructors.Length >= 2)
         {
             throw new MultipleConstructorsException(descriptor.ServiceType, descriptor.ImplementationType);
         }
+        
+        ConstructorInfo constructor = constructors[0];
+        List<Type> typesOfDependencies = constructor.GetParameters().Select(info => info.ParameterType).ToList();
 
-        if (constructors.Length == 0)
+        Type? reoccurred = typesOfDependencies.FirstOrDefault(used.Contains);
+        if (reoccurred is not null)
         {
-            instance = Activator.CreateInstance(descriptor.ImplementationType);
-        }
-        else if (constructors.Length == 1)
-        {
-            ConstructorInfo constructor = constructors[0];
-            IEnumerable<Type> typesOfDependencies =
-                constructor.GetParameters().Select(info => info.ParameterType);
-
-            Type? reoccurred = typesOfDependencies.FirstOrDefault(used.Contains);
-            if (reoccurred is not null)
-            {
-                throw new RecursiveDependencyException(descriptor.ServiceType, reoccurred);
-            }
-
-            IEnumerable<object> dependencies = typesOfDependencies.Select(
-                type => GetService(type, used) ?? throw new NoSuchServiceException(type)
-            );
-
-            instance = Activator.CreateInstance(descriptor.ImplementationType, dependencies);
+            throw new RecursiveDependencyException(descriptor.ServiceType, reoccurred);
         }
 
-        return instance;
+        List<object> dependencies = typesOfDependencies.Select(
+            type => GetService(type, used) ?? throw new NoSuchServiceException(type)
+        ).ToList();
+
+        return dependencies.Count == 0 ? Activator.CreateInstance(descriptor.ImplementationType) : Activator.CreateInstance(descriptor.ImplementationType, dependencies);
     }
 }
