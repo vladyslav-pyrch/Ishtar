@@ -1,33 +1,51 @@
 ﻿using System.Text;
+using System.Text.Json;
 using Ishtar.Abstractions;
+using HttpMethod = Ishtar.Abstractions.HttpMethod;
 
 namespace Ishtar.Middlewares;
-
+//Separate on 3 middlewares
 public class MapMiddleware : Middleware
 {
     private readonly string _path;
-    
-    private readonly Func<IHttpContext, string> _func;
+    private readonly Func<IHttpContext, object>? _returnAction;
+    private readonly Action<IHttpContext>? _action;
+    private readonly HttpMethod _method;
 
-    public MapMiddleware(string path, Func<IHttpContext, string> func)
+    public MapMiddleware(string path, Func<IHttpContext, object> returnAction, HttpMethod method)
     {
         _path = path;
-        _func = func;
+        _returnAction = returnAction;
+        _method = method;
     }
 
-    public override Task Invoke(IHttpContext context)
+    public MapMiddleware(string path, Action<IHttpContext> action, HttpMethod method)
     {
-        if (context.Request.Path != _path)
-            return Task.CompletedTask;
+        _path = path;
+        _action = action;
+        _method = method;
+    }
+    
+
+    public override async Task Invoke(IHttpContext context)
+    {
+        if (context.Request.Path != _path || context.Request.Method != _method)
+        {
+            await Next.Invoke(context);
+            return;
+        }
         
-        byte[] result = Encoding.UTF8.GetBytes(_func(context));
+        if (_returnAction is not null)
+        {
+            object result = _returnAction(context);
+            byte[] resultBytes = JsonSerializer.SerializeToUtf8Bytes(result);
+            context.Response.Headers["content-type"] = "application/json";
+            context.Response.Headers["Content-Length"] = $"{resultBytes.Length}";
+            context.Response.Body = resultBytes;
 
-        if (!context.Response.Headers.TryGetValue("Content-Type", out string? _))
-            throw new InvalidOperationException("Map middleware should specify content-type header.");
+            return;
+        }
 
-        context.Response.Headers["content-length"] = $"{result.Length}";
-        context.Response.Body = result;
-
-        return Task.CompletedTask;
+        _action?.Invoke(context);
     }
 }

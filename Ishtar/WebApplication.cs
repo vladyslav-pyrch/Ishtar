@@ -53,8 +53,14 @@ public class WebApplication : IWebApplication, IAsyncDisposable
                     using var httpContext = new HttpContext(httpRequest, httpResponse, ServiceProvider);
 
                     _firstMiddleware?.Invoke(httpContext);
+                    if (httpContext.RequestAborted.IsCancellationRequested)
+                    {
+                        cancellationToken = httpContext.RequestAborted;
+                        return;
+                    }
 
                     _ = await socket.SendAsync(CreateResponse(httpContext.Response), cancellationToken);
+                    socket.Close();
                 }
             }, cancellationToken);
         }
