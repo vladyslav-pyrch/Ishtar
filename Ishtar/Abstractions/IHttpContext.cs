@@ -1,4 +1,6 @@
-﻿namespace Ishtar.Abstractions;
+﻿using IServiceProvider = Ishtar.DependencyInjection.Abstractions.IServiceProvider;
+
+namespace Ishtar.Abstractions;
 
 public interface IHttpContext
 {
@@ -7,6 +9,8 @@ public interface IHttpContext
     public IHttpResponse Response { get; }
     
     public CancellationToken RequestAborted { get; }
+    
+    public IServiceProvider Services { get; }
 
     public Task Abort();
 }

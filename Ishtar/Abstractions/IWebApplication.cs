@@ -1,4 +1,6 @@
-﻿namespace Ishtar.Abstractions;
+﻿using Ishtar.DependencyInjection.Abstractions;
+
+namespace Ishtar.Abstractions;
 using IServiceProvider = Ishtar.DependencyInjection.Abstractions.IServiceProvider;
 
 public interface IWebApplication
@@ -9,5 +11,5 @@ public interface IWebApplication
 
     public Task Stop(CancellationToken cancellationToken = default);
 
-    public IWebApplication Use<TMiddleware>() where TMiddleware : class, IMiddleware;
+    public IWebApplication Use<TMiddleware>(params object?[]? args) where TMiddleware : class, IMiddleware;
 }

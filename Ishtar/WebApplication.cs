@@ -16,9 +16,9 @@ public class WebApplication : IWebApplication, IAsyncDisposable
 {
     private readonly TcpListener _listener;
 
-    private readonly IServiceCollection _collection;
-
     private readonly IServiceProvider _localServiceProvider;
+
+    private readonly IServiceCollection _collection;
 
     private IMiddleware? _firstMiddleware;
 
@@ -33,38 +33,45 @@ public class WebApplication : IWebApplication, IAsyncDisposable
     }
 
     public IServiceProvider ServiceProvider => new ServiceProvider(_collection);
-    
+
     public async Task Start(CancellationToken cancellationToken = default)
     {
+        Use<NoEndpointMiddleware>();
         _listener.Start();
 
         while (!cancellationToken.IsCancellationRequested)
         {
-            using Socket socket = await _listener.AcceptSocketAsync(cancellationToken);
-            await using var stream = new NetworkStream(socket, FileAccess.Read, false);
-            IHttpRequest httpRequest = CreateRequest(GetRequestString(stream), stream);
-            IHttpResponse httpResponse =
-                new HttpResponse(HttpStatusCode.NotSet0, httpRequest.Version, new HeaderDictionary(), []);
-            using var httpContext = new HttpContext(httpRequest, httpResponse);
+            Socket socket = await _listener.AcceptSocketAsync(cancellationToken);
+            _ = Task.Run(async () =>
+            {
+                using (socket)
+                {
+                    await using var stream = new NetworkStream(socket, FileAccess.Read, false);
+                    IHttpRequest httpRequest = CreateRequest(GetRequestString(stream), stream);
+                    IHttpResponse httpResponse =
+                        new HttpResponse(HttpStatusCode.OK200, httpRequest.Version, new HeaderDictionary(), []);
+                    using var httpContext = new HttpContext(httpRequest, httpResponse, ServiceProvider);
 
-            _firstMiddleware?.Invoke(httpContext);
+                    _firstMiddleware?.Invoke(httpContext);
 
-            await socket.SendAsync(CreateResponse(httpContext.Response), cancellationToken);
+                    _ = await socket.SendAsync(CreateResponse(httpContext.Response), cancellationToken);
+                }
+            }, cancellationToken);
         }
     }
 
-    public async Task Stop(CancellationToken cancellationToken = default)
+    public Task Stop(CancellationToken cancellationToken = default)
     {
-        await Task.Run(() =>
+        return Task.Run(() =>
         {
             _listener.Stop();
             _listener.Dispose();
         }, cancellationToken);
     }
 
-    public IWebApplication Use<TMiddleware>() where TMiddleware : class, IMiddleware
+    public IWebApplication Use<TMiddleware>(params object?[]? args) where TMiddleware : class, IMiddleware
     {
-        var middleware = _localServiceProvider.InjectInto<TMiddleware>();
+        var middleware = _localServiceProvider.InjectInto<TMiddleware>(args);
         Use(middleware);
         return this;
     }
@@ -159,4 +166,16 @@ public class WebApplication : IWebApplication, IAsyncDisposable
 
     [MemberNotNullWhen(true, "_firstMiddleware", "_lastMiddleware")]
     private bool HasMiddlewares() => _firstMiddleware is not null;
+    
+    private class NoEndpointMiddleware : IMiddleware
+    {
+        public IMiddleware Next { get; set; } = null!;
+
+        public Task Invoke(IHttpContext context)
+        {
+            context.Response.StatusCode = context.Request.Method is { Value: "GET" or "HEAD" }
+                ? HttpStatusCode.OK200 : HttpStatusCode.NotImplemented501;
+            return Task.CompletedTask;
+        }
+    }
 }

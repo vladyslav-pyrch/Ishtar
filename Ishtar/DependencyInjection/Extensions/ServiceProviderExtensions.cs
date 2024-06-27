@@ -4,7 +4,7 @@ using IServiceProvider = Ishtar.DependencyInjection.Abstractions.IServiceProvide
 
 namespace Ishtar.DependencyInjection.Extensions;
 
-public static class IServiceProviderExtensions
+public static class ServiceProviderExtensions
 {
     public static object GetRequiredService(this IServiceProvider serviceProvider, Type serviceType)
     {
@@ -20,32 +20,49 @@ public static class IServiceProviderExtensions
     {
         return (TService)serviceProvider.GetRequiredService(typeof(TService));
     }
+    
+    public static object InjectInto(this IServiceProvider serviceProvider, Type serviceType, params object?[]? args)
+    {
+        if (serviceType.IsInterface || serviceType.IsAbstract)
+            throw new InvalidOperationException(
+                $"Service type {serviceType.FullName} may not be an interface or an abstract class");
+        
+        ConstructorInfo[] constructors = serviceType.GetConstructors();
+
+        foreach (ConstructorInfo constructor in constructors)
+        {
+            object[] dependencies = constructor.GetParameters()
+                .Select(
+                    info => serviceProvider.GetService(info.ParameterType)
+                ).Except([null]).ToArray()!;
+
+            try
+            {
+                return Activator.CreateInstance(serviceType, [..dependencies, ..args ?? []])!;
+            }
+            catch (Exception)
+            {
+                // ignored
+            }
+        }
+
+        throw new InvalidOperationException("Could not find a constructor.");
+    }
 
     public static object InjectInto(this IServiceProvider serviceProvider, Type serviceType)
     {
-        if (serviceType.IsInterface || serviceType.IsAbstract)
-        {
-            throw new InvalidOperationException(
-                $"Service type {serviceType.FullName} may not be an interface or an abstract class");
-        }
-        
-        ConstructorInfo[] constructors = serviceType.GetConstructors();
-        if (constructors.Length >= 2)
-        {
-            throw new MultipleConstructorsException(serviceType, serviceType);
-        }
-
-        object[] dependencies = constructors[0].GetParameters()
-            .Select(
-                info => serviceProvider.GetService(info.ParameterType)  ?? throw new NoSuchServiceException(info.ParameterType)
-                ).ToArray();
-        
-        return Activator.CreateInstance(serviceType, dependencies.ToArray())!;
+        return serviceProvider.InjectInto(serviceType, null);
     }
 
     public static TService InjectInto<TService>(this IServiceProvider serviceProvider)
         where TService : class
     {
         return (TService)serviceProvider.InjectInto(typeof(TService));
+    }
+
+    public static TService InjectInto<TService>(this IServiceProvider serviceProvider, params object?[]? args)
+        where TService : class
+    {
+        return (TService)serviceProvider.InjectInto(typeof(TService), args);
     }
 }

@@ -1,6 +1,6 @@
 ﻿namespace Ishtar.Abstractions;
 
-public class HttpStatusCode : IEquatable<HttpStatusCode>
+public record HttpStatusCode
 {
     public HttpStatusCode(int statusCode, string statusMessage)
     {
@@ -137,33 +137,4 @@ public class HttpStatusCode : IEquatable<HttpStatusCode>
     public static HttpStatusCode NotExtended510 => new(510, "Not Extended");
     
     public static HttpStatusCode NetworkAuthenticationRequired511 => new(511, "Network Authentication Required");
-
-    public static bool operator ==(HttpStatusCode statusCode1, HttpStatusCode statusCode2)
-    {
-        return statusCode1.Equals(statusCode2);
-    }
-
-    public static bool operator !=(HttpStatusCode statusCode1, HttpStatusCode statusCode2)
-    {
-        return !(statusCode1 == statusCode2);
-    }
-
-    public bool Equals(HttpStatusCode? other)
-    {
-        if (ReferenceEquals(null, other)) return false;
-        if (ReferenceEquals(this, other)) return true;
-        return StatusCode == other.StatusCode && StatusMessage == other.StatusMessage;
-    }
-
-    public override bool Equals(object? obj)
-    {
-        if (ReferenceEquals(null, obj)) return false;
-        if (ReferenceEquals(this, obj)) return true;
-        return obj.GetType() == this.GetType() && Equals((HttpStatusCode)obj);
-    }
-
-    public override int GetHashCode()
-    {
-        return HashCode.Combine(StatusCode, StatusMessage);
-    }
 }

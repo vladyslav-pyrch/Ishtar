@@ -9,7 +9,13 @@ internal class HeaderDictionary : IHeaderDictionary
 
     public HeaderDictionary(IDictionary<string, string>? headers = null)
     {
-        _headers = headers ?? new Dictionary<string, string>();
+        IDictionary<string, string> newHeaders = new Dictionary<string, string>();
+        
+        if (headers != null)
+            foreach ((string? key, string? value) in headers)
+                newHeaders[key.ToLower()] = value;
+
+        _headers = newHeaders;
     }
 
     public IEnumerator<KeyValuePair<string, string>> GetEnumerator()
@@ -24,7 +30,7 @@ internal class HeaderDictionary : IHeaderDictionary
 
     public void Add(KeyValuePair<string, string> item)
     {
-        _headers.Add(item);
+        _headers.Add(new KeyValuePair<string, string>(item.Key.ToLower(), item.Value));
     }
 
     public void Clear()
@@ -34,7 +40,7 @@ internal class HeaderDictionary : IHeaderDictionary
 
     public bool Contains(KeyValuePair<string, string> item)
     {
-        return _headers.Contains(item);
+        return _headers.Contains(new KeyValuePair<string, string>(item.Key.ToLower(), item.Value));
     }
 
     public void CopyTo(KeyValuePair<string, string>[] array, int arrayIndex)
@@ -44,7 +50,7 @@ internal class HeaderDictionary : IHeaderDictionary
 
     public bool Remove(KeyValuePair<string, string> item)
     {
-        return _headers.Remove(item);
+        return _headers.Remove(new KeyValuePair<string, string>(item.Key.ToLower(), item.Value));
     }
 
     public int Count => _headers.Count;
@@ -53,28 +59,28 @@ internal class HeaderDictionary : IHeaderDictionary
 
     public void Add(string key, string value)
     {
-        _headers.Add(key, value);
+        _headers.Add(key.ToLower(), value);
     }
 
     public bool ContainsKey(string key)
     {
-        return _headers.ContainsKey(key);
+        return _headers.ContainsKey(key.ToLower());
     }
 
     public bool Remove(string key)
     {
-        return _headers.Remove(key);
+        return _headers.Remove(key.ToLower());
     }
 
     public bool TryGetValue(string key, out string value)
     {
-        return _headers.TryGetValue(key, out value);
+        return _headers.TryGetValue(key.ToLower(), out value);
     }
 
     public string this[string key]
     {
-        get => _headers[key];
-        set => _headers[key] = value;
+        get => _headers[key.ToLower()];
+        set => _headers[key.ToLower()] = value;
     }
 
     public ICollection<string> Keys => _headers.Keys;

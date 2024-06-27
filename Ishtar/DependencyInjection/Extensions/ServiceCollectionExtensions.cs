@@ -3,7 +3,7 @@ using IServiceProvider = Ishtar.DependencyInjection.Abstractions.IServiceProvide
 
 namespace Ishtar.DependencyInjection.Extensions;
 
-public static class IServiceCollectionExtensions
+public static class ServiceCollectionExtensions
 {
     public static void AddTransient(this IServiceCollection serviceCollection, Type serviceType, Type implementationType)
     {
