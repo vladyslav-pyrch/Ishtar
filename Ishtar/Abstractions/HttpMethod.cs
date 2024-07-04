@@ -1,6 +1,6 @@
 ﻿namespace Ishtar.Abstractions;
 
-public record HttpMethod
+public record struct HttpMethod
 {
     public HttpMethod(string value)
     {
@@ -9,15 +9,15 @@ public record HttpMethod
     
     public string Value { get; }
 
-    public static HttpMethod Get => new("GET");
+    public static readonly HttpMethod Get = new("GET");
+    
+    public static readonly HttpMethod Head = new("HEAD");
 
-    public static HttpMethod Head => new("HEAD");
+    public static readonly HttpMethod Push = new("PUSH");
 
-    public static HttpMethod Push => new("PUSH");
+    public static readonly HttpMethod Put = new("PUT");
 
-    public static HttpMethod Put => new("PUT");
+    public static readonly HttpMethod Patch = new("PATCH");
 
-    public static HttpMethod Patch => new("PATCH");
-
-    public static HttpMethod Delete => new("DELETE");
+    public static readonly HttpMethod Delete = new("DELETE");
 }

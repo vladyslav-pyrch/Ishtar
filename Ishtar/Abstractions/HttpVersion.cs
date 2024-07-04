@@ -1,6 +1,6 @@
 ﻿namespace Ishtar.Abstractions;
 
-public record HttpVersion
+public record struct HttpVersion
 {
     public HttpVersion(string version)
     {
@@ -9,5 +9,5 @@ public record HttpVersion
     
     public string Version { get; }
 
-    public static HttpVersion Version11 => new("HTTP/1.1");
+    public static readonly HttpVersion Version11 = new("HTTP/1.1");
 }

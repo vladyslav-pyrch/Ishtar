@@ -49,7 +49,7 @@ public class WebApplication : IWebApplication, IAsyncDisposable
                     await using var stream = new NetworkStream(socket, FileAccess.Read, false);
                     IHttpRequest httpRequest = CreateRequest(GetRequestString(stream), stream);
                     IHttpResponse httpResponse =
-                        new HttpResponse(HttpStatusCode.OK200, httpRequest.Version, new HeaderDictionary(), []);
+                        new HttpResponse(HttpStatusCode.Ok200, httpRequest.Version, new HeaderDictionary(), []);
                     using var httpContext = new HttpContext(httpRequest, httpResponse, ServiceProvider);
 
                     _firstMiddleware?.Invoke(httpContext);
@@ -180,7 +180,7 @@ public class WebApplication : IWebApplication, IAsyncDisposable
         public Task Invoke(IHttpContext context)
         {
             context.Response.StatusCode = context.Request.Method is { Value: "GET" or "HEAD" }
-                ? HttpStatusCode.OK200 : HttpStatusCode.NotImplemented501;
+                ? HttpStatusCode.Ok200 : HttpStatusCode.NotImplemented501;
             return Task.CompletedTask;
         }
     }
