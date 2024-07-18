@@ -2,6 +2,9 @@
 
     <PropertyGroup>
         <TargetFramework>net8.0</TargetFramework>
+        <PackageId>Ishtar</PackageId>
+        <Version>1.0.1</Version>
+        <Authors>Vladyslav Pyrch</Authors>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
     </PropertyGroup>

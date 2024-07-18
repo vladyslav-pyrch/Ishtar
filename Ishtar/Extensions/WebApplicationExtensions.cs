@@ -31,9 +31,9 @@ public static class WebApplicationExtensions
         application.Use<MapMiddleware>(path, action, method ?? HttpMethod.Get);
     }
 
-    public static void UseRun(this IWebApplication application, ActionResult actionResult)
+    public static void UseRun(this IWebApplication application, Action action)
     {
-        application.Use<RunMiddleware>(actionResult);
+        application.Use<RunMiddleware>(action);
     }
 
     public static void UseEndpoints(this IWebApplication application, Assembly assembly)
