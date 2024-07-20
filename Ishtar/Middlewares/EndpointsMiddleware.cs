@@ -44,7 +44,8 @@ public class EndpointsMiddleware : Middleware
                 return false;
             
             var attribute = info.GetCustomAttribute<HttpRouteAttribute>();
-            return attribute is not null && context.Request.Path == controllerAttribute.Route + attribute.Route;
+            return attribute is not null && context.Request.Path == controllerAttribute.Route + attribute.Route
+                                         && attribute.HttpMethod == context.Request.Method;
         }).SingleOrDefault(); // for methods you can;
         
         if (action is null)
