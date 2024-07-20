@@ -19,7 +19,7 @@ public class EndpointsMiddleware : Middleware
 
     public override async Task Invoke(IHttpContext context)
     {
-        ApiControllerAttribute controllerAttribute = null;
+        ApiControllerAttribute? controllerAttribute = null;
 
         Type? controllerType = _controllers.Where(type =>
         {
@@ -63,10 +63,10 @@ public class EndpointsMiddleware : Middleware
         object? result = parameters.Length switch
         {
             0 => action.Invoke(controller, []),
-            1 when parameters[0].ParameterType.IsAssignableFrom(typeof(IHttpRequest)) => 
+            1 when parameters[0].ParameterType.IsAssignableTo(typeof(IHttpRequest)) => 
                 action.Invoke(controller, [context.Request]),
             1 => action.Invoke(controller, 
-                    [await JsonSerializer.DeserializeAsync(context.Request.Body, parameters[0].ParameterType)]),
+                    [JsonSerializer.Deserialize(context.Request.Body, parameters[0].ParameterType)]),
             _ => null
         };
 
@@ -100,6 +100,8 @@ public class EndpointsMiddleware : Middleware
             case IActionResult actionResult:
                 context.Response.StatusCode = actionResult.StatusCode;
                 break;
+            default:
+                throw new Exception("Controller method does not return an IActionResult, an IObjectResult, or a Task of any of these.");
         }
     }
 }

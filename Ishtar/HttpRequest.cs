@@ -6,7 +6,7 @@ namespace Ishtar;
 internal class HttpRequest : IHttpRequest
 {
     public HttpRequest(HttpMethod method, string path, HttpVersion version, IHeaderDictionary headers,
-        IQueryDictionary query, Stream body)
+        IQueryDictionary query, byte[] body)
     {
         Method = method;
         Path = path;
@@ -26,5 +26,5 @@ internal class HttpRequest : IHttpRequest
 
     public IQueryDictionary Query { get; set; }
 
-    public Stream Body { get; set; }
+    public byte[] Body { get; set; }
 }

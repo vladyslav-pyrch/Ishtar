@@ -12,5 +12,5 @@ public interface IHttpRequest
     
     public IQueryDictionary Query { get; set; }
     
-    public Stream Body { get; set; }
+    public byte[] Body { get; set; }
 }

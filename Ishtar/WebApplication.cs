@@ -7,6 +7,7 @@ using Ishtar.Abstractions;
 using Ishtar.DependencyInjection;
 using Ishtar.DependencyInjection.Abstractions;
 using Ishtar.DependencyInjection.Extensions;
+using Ishtar.Middlewares;
 using HttpMethod = Ishtar.Abstractions.HttpMethod;
 using IServiceProvider = Ishtar.DependencyInjection.Abstractions.IServiceProvider;
 
@@ -46,13 +47,29 @@ public class WebApplication : IWebApplication, IAsyncDisposable
             {
                 using (socket)
                 {
-                    await using var stream = new NetworkStream(socket, FileAccess.Read, false);
-                    IHttpRequest httpRequest = CreateRequest(GetRequestString(stream), stream);
+                    const int bufferSize = 25600;
+                    var buffer = new byte[bufferSize];
+                    int readBytes = await socket.ReceiveAsync(buffer);
+                    if (readBytes > bufferSize)
+                    {
+                        var headers = new HeaderDictionary();
+                        byte[] body = "Buffer overflow!"u8.ToArray();
+                        headers.Add("Content-Type", "plain/text");
+                        headers.Add("Content-Length", body.Length.ToString());
+                        _ = await socket.SendAsync(CreateResponse(new HttpResponse(
+                            HttpStatusCode.BadRequest400,
+                            HttpVersion.Version11,
+                            headers,
+                            body
+                        )));
+                    }
+                    
+                    IHttpRequest httpRequest = CreateRequest(GetRequestString(buffer), GetRequestBody(buffer, readBytes));
                     IHttpResponse httpResponse =
                         new HttpResponse(HttpStatusCode.Ok200, httpRequest.Version, new HeaderDictionary(), []);
                     using var httpContext = new HttpContext(httpRequest, httpResponse, ServiceProvider);
 
-                    _firstMiddleware?.Invoke(httpContext);
+                    await _firstMiddleware?.Invoke(httpContext)!;
                     if (httpContext.RequestAborted.IsCancellationRequested)
                     {
                         cancellationToken = httpContext.RequestAborted;
@@ -60,10 +77,29 @@ public class WebApplication : IWebApplication, IAsyncDisposable
                     }
 
                     _ = await socket.SendAsync(CreateResponse(httpContext.Response), cancellationToken);
-                    socket.Close();
                 }
             }, cancellationToken);
         }
+    }
+
+    private byte[] GetRequestBody(byte[] buffer, int bodyEndIndex)
+    {
+        const string end = "\r\n\r\n";
+        var matchIndex = 0;
+        var bodyStartIndex = 0;
+        
+        foreach (byte t in buffer)
+        {
+            if (matchIndex == 4)
+                break;
+            if ((char)t == end[matchIndex])
+                matchIndex++;
+            else
+                matchIndex = 0;
+            bodyStartIndex++;
+        }
+
+        return buffer[bodyStartIndex..bodyEndIndex];
     }
 
     public Task Stop(CancellationToken cancellationToken = default)
@@ -104,16 +140,16 @@ public class WebApplication : IWebApplication, IAsyncDisposable
 
     public static WebApplicationBuilder CreateBuilder(string[]? args = default) => new(args);
 
-    private string GetRequestString(Stream stream)
+    private string GetRequestString(byte[] buffer)
     {
         var requestStringBuilder = new StringBuilder();
         
         const string end = "\r\n\r\n";
         var matchIndex = 0;
         
-        for (int b = stream.ReadByte(); b != -1; b = stream.ReadByte())
+        foreach(byte t in buffer)
         {
-            var ch = (char)b;
+            var ch = (char)t;
             requestStringBuilder.Append(ch);
             if (ch == end[matchIndex])
                 matchIndex++;
@@ -126,11 +162,17 @@ public class WebApplication : IWebApplication, IAsyncDisposable
         return requestStringBuilder.ToString();
     }
 
-    private IHttpRequest CreateRequest(string requestString, Stream bodyStream)
+    private IHttpRequest CreateRequest(string requestString, byte[] body)
     {
         if (string.IsNullOrEmpty(requestString))
-            return new HttpRequest(HttpMethod.Get, "/", HttpVersion.Version11, new HeaderDictionary(),
-                new QueryDictionary(), bodyStream);
+            return new HttpRequest(
+                HttpMethod.Get,
+                "/",
+                HttpVersion.Version11,
+                new HeaderDictionary(),
+                new QueryDictionary(),
+                body
+            );
         
         string[] lines = requestString.Split("\r\n");
         string[] startLine = lines[0].Split(' ');
@@ -138,7 +180,7 @@ public class WebApplication : IWebApplication, IAsyncDisposable
         var method = new HttpMethod(startLine[0]);
         string path = startLine[1].Split('?')[0];
         var version = new HttpVersion(startLine[2]);
-        IQueryDictionary queryDictionary = new QueryDictionary();
+        var queryDictionary = new QueryDictionary();
         
         NameValueCollection query = HttpUtility.ParseQueryString(new Uri("http://does.not.exist" + startLine[1]).Query);
         for (var i = 0; i < query.Count; i++)
@@ -149,12 +191,13 @@ public class WebApplication : IWebApplication, IAsyncDisposable
                 continue;
             queryDictionary.Add(key, value);
         }
-        
-        IHeaderDictionary headers = new HeaderDictionary(lines.Skip(1).SkipLast(2)
-            .Select(line => line.Split(": "))
-            .ToDictionary(headerValue => headerValue[0].ToLower(), headerValue => headerValue[1]));
 
-        return new HttpRequest(method, path, version, headers, queryDictionary, bodyStream);
+        var headers = new HeaderDictionary(lines.Skip(1).SkipLast(2)
+            .Select(line => line.Split(": "))
+            .ToDictionary(headerValue => headerValue[0].ToLower(), headerValue => headerValue[1])
+        );
+
+        return new HttpRequest(method, path, version, headers, queryDictionary, body);
     }
 
     private byte[] CreateResponse(IHttpResponse response)
@@ -172,16 +215,4 @@ public class WebApplication : IWebApplication, IAsyncDisposable
 
     [MemberNotNullWhen(true, "_firstMiddleware", "_lastMiddleware")]
     private bool HasMiddlewares() => _firstMiddleware is not null;
-    
-    private class NoEndpointMiddleware : IMiddleware
-    {
-        public IMiddleware Next { get; set; } = null!;
-
-        public Task Invoke(IHttpContext context)
-        {
-            context.Response.StatusCode = context.Request.Method is { Value: "GET" or "HEAD" }
-                ? HttpStatusCode.Ok200 : HttpStatusCode.NotImplemented501;
-            return Task.CompletedTask;
-        }
-    }
 }
