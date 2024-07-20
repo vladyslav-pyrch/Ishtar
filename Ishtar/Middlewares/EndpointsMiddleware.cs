@@ -87,6 +87,15 @@ public class EndpointsMiddleware : Middleware
             {
                 IActionResult actionResult = await asyncAction;
                 context.Response.StatusCode = actionResult.StatusCode;
+
+                if (actionResult is IObjectResult objectActionResult)
+                {
+                    byte[] resultBytes = JsonSerializer.SerializeToUtf8Bytes(objectActionResult.Result);
+                    context.Response.Headers["content-type"] = "application/json";
+                    context.Response.Headers["Content-Length"] = $"{resultBytes.Length}";
+                    context.Response.Body = resultBytes;
+                }
+
                 break;
             }
             case IObjectResult objectActionResult:
