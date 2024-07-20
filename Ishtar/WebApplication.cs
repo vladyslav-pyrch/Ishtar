@@ -43,7 +43,7 @@ public class WebApplication : IWebApplication, IAsyncDisposable
         while (!cancellationToken.IsCancellationRequested)
         {
             Socket socket = await _listener.AcceptSocketAsync(cancellationToken);
-            _ = Task.Run(async () =>
+            var connection = Task.Run(async () =>
             {
                 using (socket)
                 {
@@ -78,6 +78,9 @@ public class WebApplication : IWebApplication, IAsyncDisposable
 
                     _ = await socket.SendAsync(CreateResponse(httpContext.Response), cancellationToken);
                 }
+            }, cancellationToken).ContinueWith(task =>
+            {
+                if (task.IsFaulted) throw task.Exception;
             }, cancellationToken);
         }
     }
