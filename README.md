@@ -1,5 +1,5 @@
 # Ishtar
-A simple web framework for developing a HTTP server
+A simple web library for developing a HTTP server (It uses the 4221 port)
 
 https://www.nuget.org/packages/Ishtar/
 
